@@ -165,23 +165,28 @@ function sudo_mode_admin_enqueue_scripts() {
 		};
 
 	jQuery('#sudo-unlock').submit( function(event) {
-
 		event.preventDefault();
+		if ( jQuery('#sudo-unlock-password').val().length == 0 ) {
+			return;
+		}
 		wp.ajax.send( 'sudo-mode-ajax-log-in', {
 			data: {
 				username : jQuery('#sudo-unlock-username').val(),
 				password : jQuery('#sudo-unlock-password').val()
 			},
 			success: function( data ) {
-				// console.log( data );
 				jQuery('#wp-admin-bar-locked').addClass('lock');
 				jQuery('#wp-admin-bar-locked .ab-label').text( sudoMode.lock );
+				// console.log( data );
 			},
 			error: function( data ) {
-				jQuery('#wp-admin-bar-locked li').append( '<br />' + data );
+				if ( jQuery('#sudo-mode-error').length > 0 ) {
+					jQuery('#sudo-mode-error').replaceWith( data );
+				} else {
+					jQuery('#wp-admin-bar-locked li').append( data );
+				}
 				jQuery('#sudo-unlock-password').val('');
-				// alert( sudoMode.err );
-				console.log( data );
+				// console.log( data );
 			}
 		} );
 
@@ -222,7 +227,9 @@ function sudo_mode_ajax_log_in() {
 		sudo_mode_user_set_sudo();
 		wp_send_json_success( $auth->ID );
 	} else {
-		wp_send_json_error( $auth->get_error_message() );
+		if ( 'incorrect_password' == $auth->get_error_code() ) {
+			wp_send_json_error( '<span id="sudo-mode-error" class="ab-empty-item">'. __( 'Password incorrect', 'sudo-mode' ) .'</span>' );
+		}
 	}
 
 }
