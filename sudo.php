@@ -159,9 +159,9 @@ function sudo_mode_admin_enqueue_scripts() {
 
 	var wp = window.wp,
 		sudoMode = {
-			'lock': '<?php _e('Unlocked. Refresh', 'sudo-mode'); ?>',
-			'unlock': '<?php _e('Locked. Refresh', 'sudo-mode'); ?>',
-			'err': '<?php _e('Error', 'sudo-mode'); ?>'
+			'lock': '<?php echo esc_js ( __('Unlocked. Refresh', 'sudo-mode') ); ?>',
+			'unlock': '<?php echo esc_js ( __('Locked. Refresh', 'sudo-mode') ); ?>',
+			'err': '<?php echo esc_js ( __('Error', 'sudo-mode') ); ?>'
 		};
 
 	jQuery('#sudo-unlock').submit( function(event) {
