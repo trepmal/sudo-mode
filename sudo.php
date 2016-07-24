@@ -6,13 +6,14 @@
 // DEBUG
 add_action( 'in_admin_header', function() {
 
-		echo 'Expiration: '.sudo_mode_get_expiration() . ' // ' . date('H:i:s', sudo_mode_get_expiration() ). '<br />';
-		echo 'Current: '.time() . ' // ' . date('H:i:s' ). '<br />';
-		echo 'Wait: '. (sudo_mode_get_expiration()-time()) . ' // ' . date('H:i:s',sudo_mode_get_expiration()-time() ). '<br />';
-		echo 'Warning: ' . sudo_mode_user_is_sudo_warning();
-		echo '<br />';
-		echo 'start warning: '. (sudo_mode_get_expiration() - SUDO_MODE_EXPIRATION_WARN) . ' // ' . date('H:i:s',(sudo_mode_get_expiration() - SUDO_MODE_EXPIRATION_WARN) ). '<br />';
+	return;
 
+	echo 'Expiration: '.sudo_mode_get_expiration() . ' // ' . date('H:i:s', sudo_mode_get_expiration() ). '<br />';
+	echo 'Current: '.time() . ' // ' . date('H:i:s' ). '<br />';
+	echo 'Wait: '. (sudo_mode_get_expiration()-time()) . ' // ' . date('H:i:s',sudo_mode_get_expiration()-time() ). '<br />';
+	echo 'Warning: ' . sudo_mode_user_is_sudo_warning();
+	echo '<br />';
+	echo 'start warning: '. (sudo_mode_get_expiration() - SUDO_MODE_EXPIRATION_WARN) . ' // ' . date('H:i:s',(sudo_mode_get_expiration() - SUDO_MODE_EXPIRATION_WARN) ). '<br />';
 });
 
 /** How long does sudo mode last?
@@ -57,6 +58,9 @@ function sudo_mode_user_is_sudo() {
  * @return bool
  */
 function sudo_mode_user_is_sudo_warning() {
+	if ( ! sudo_mode_user_is_sudo() ) {
+		return false;
+	}
 	$expiration = sudo_mode_get_expiration();
 	return ( ( $expiration - SUDO_MODE_EXPIRATION_WARN ) < time() && $expiration > time() );
 }
@@ -102,7 +106,6 @@ function sudo_mode_admin_bar_menu( $wp_admin_bar ) {
 		'id'     => 'locked',
 		'meta'   => array(
 			'class' => implode(' ', $classes ),
-			'title' => 'Expiring in ' . date( 'H:i:s', sudo_mode_get_expiration()-time() ) //@todo l10n
 		),
 		'title'  => '<span class="ab-icon"></span><span class="ab-label">' .
 		         (sudo_mode_user_is_sudo() ? __( 'Lock', 'sudo-mode' ) :  __( 'Unlock', 'sudo-mode' ) ) .
@@ -113,12 +116,18 @@ function sudo_mode_admin_bar_menu( $wp_admin_bar ) {
 		'parent' => 'locked',
 		'id'     => 'locked-field',
 		'meta'   => array(
-			'class' => ( sudo_mode_user_is_sudo() && ! sudo_mode_user_is_sudo_warning() ? 'hide' : '' )
+			'class' => ( sudo_mode_user_is_sudo() && ! sudo_mode_user_is_sudo_warning() ? 'hidden' : '' )
 		),
 		'title'  => '<form id="sudo-unlock">'.
-		            '<input id="sudo-unlock-password" type="password" style="height: 20px;" />'.
+		            '<input id="sudo-unlock-password" type="password" style="height: 20px;" placeholder="user password" />'.
 		            '<input id="sudo-unlock-username" type="hidden" value="'. wp_get_current_user()->data->user_login .'" />'.
 		            '</form>',
+	) );
+	if ( sudo_mode_user_is_sudo() )
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'locked',
+		'id'     => 'locked-timer',
+		'title'  => sprintf( __( 'Expiring in %s', 'sudo-mode' ), date( 'H:i:s', sudo_mode_get_expiration()-time() ) ),
 	) );
 }
 add_action( 'admin_bar_menu', 'sudo_mode_admin_bar_menu', 88 );
@@ -138,8 +147,6 @@ function sudo_mode_admin_css() {
 	#wpadminbar #wp-admin-bar-locked.lock.warn .ab-icon:before {
 		color: red;
 	}
-	<?php //	if ( ! sudo_mode_user_is_sudo() ) : ?>
-
 	</style>
 	<?php
 }
@@ -150,7 +157,12 @@ function sudo_mode_admin_enqueue_scripts() {
 	ob_start();
 	?>
 
-	var wp = window.wp;
+	var wp = window.wp,
+		sudoMode = {
+			'lock': '<?php _e('Unlocked. Refresh', 'sudo-mode'); ?>',
+			'unlock': '<?php _e('Locked. Refresh', 'sudo-mode'); ?>',
+			'err': '<?php _e('Error', 'sudo-mode'); ?>'
+		};
 
 	jQuery('#sudo-unlock').submit( function(event) {
 
@@ -161,12 +173,14 @@ function sudo_mode_admin_enqueue_scripts() {
 				password : jQuery('#sudo-unlock-password').val()
 			},
 			success: function( data ) {
+				// console.log( data );
 				jQuery('#wp-admin-bar-locked').addClass('lock');
-				jQuery('#wp-admin-bar-locked .ab-label').text('Lock'); // @todo l10n
+				jQuery('#wp-admin-bar-locked .ab-label').text( sudoMode.lock );
 			},
 			error: function( data ) {
+				jQuery('#wp-admin-bar-locked li').append( '<br />' + data );
 				jQuery('#sudo-unlock-password').val('');
-				alert( 'err' );
+				// alert( sudoMode.err );
 				console.log( data );
 			}
 		} );
@@ -181,8 +195,7 @@ function sudo_mode_admin_enqueue_scripts() {
 			},
 			success: function( data ) {
 				jQuery('#wp-admin-bar-locked').removeClass('lock');
-				jQuery('#wp-admin-bar-locked .ab-label').text('Unlock'); // @todo l10n
-				alert( data );
+				jQuery('#wp-admin-bar-locked .ab-label').text( sudoMode.unlock );
 			},
 			error: function( data ) {
 				alert( data );
@@ -193,6 +206,7 @@ function sudo_mode_admin_enqueue_scripts() {
 
 	<?php
 	$script = ob_get_clean();
+	wp_enqueue_script( 'wp-util' );
 	wp_add_inline_script( 'wp-util', $script );
 }
 add_action( 'admin_enqueue_scripts', 'sudo_mode_admin_enqueue_scripts', 1000 );
